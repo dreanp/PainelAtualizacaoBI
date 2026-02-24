@@ -3,7 +3,7 @@ import json
 
 # Configuração
 API_URL = 'http://192.168.0.210:5000'  # Altere para o IP do seu servidor se for diferente
-TOKEN = '123456789'  # Deve ser igual ao do .env
+TOKEN = 'seu-token-aqui'  # Deve ser igual ao do .env
 
 def testar_health():
     """Testa o endpoint de health check"""
