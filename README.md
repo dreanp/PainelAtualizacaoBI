@@ -1,266 +1,62 @@
-# ⚡ Painel de Atualização Power BI
+# API de Atualização do Power BI
 
-Sistema web completo para disparar atualizações de relatórios Power BI via tarefas agendadas do Windows, com autenticação por usuário, controle de permissões por aplicação e painel administrativo.
+API Flask para disparar atualizações do Power BI de forma segura através de uma interface web.
 
----
+## Instalação
 
-## 📋 Sumário
-
-- [Visão Geral](#visão-geral)
-- [Arquitetura](#arquitetura)
-- [Estrutura de Arquivos](#estrutura-de-arquivos)
-- [Pré-requisitos](#pré-requisitos)
-- [Instalação e Configuração](#instalação-e-configuração)
-- [Banco de Dados](#banco-de-dados)
-- [Referência da API](#referência-da-api)
-- [Frontend](#frontend)
-- [Hospedagem no IIS](#hospedagem-no-iis)
-- [Segurança](#segurança)
-- [Troubleshooting](#troubleshooting)
-
----
-
-## Visão Geral
-
-O sistema é composto por uma **API Flask** (backend) e páginas HTML estáticas (frontend). Usuários fazem login, visualizam apenas as aplicações às quais têm acesso e disparam atualizações de relatórios Power BI com um clique. Administradores têm acesso a um painel para gerenciar usuários e permissões.
-
-**Fluxo resumido:**
-
-```
-Usuário → login.html → dashboard.html → API Flask → schtasks (Windows) → Power BI Gateway
-```
-
----
-
-## Arquitetura
-
-```
-┌─────────────────────────────────┐
-│         Frontend (IIS)          │
-│  login.html / dashboard.html    │
-│       admin.html                │
-└────────────┬────────────────────┘
-             │ HTTP (fetch API)
-             ▼
-┌─────────────────────────────────┐
-│      Backend: api_bi.py         │
-│      Flask · Python 3.x         │
-│      Porta 5000                 │
-└──────┬──────────────┬───────────┘
-       │              │
-       ▼              ▼
-┌────────────┐  ┌─────────────────┐
-│ SQL Server │  │ schtasks /run   │
-│ (usuários) │  │ (Windows Task   │
-│            │  │  Scheduler)     │
-└────────────┘  └─────────────────┘
-```
-
-### Componentes
-
-| Componente | Tecnologia | Função |
-|---|---|---|
-| API | Python / Flask | Autenticação, autorização e disparo de tarefas |
-| Frontend | HTML + CSS (vanilla) | Interface do usuário |
-| Banco de dados | SQL Server (pyodbc) | Gerenciamento de usuários e permissões |
-| Agendador | Windows Task Scheduler | Execução das atualizações Power BI |
-| Servidor Web | IIS (Windows Server) | Hospedagem das páginas estáticas |
-
----
-
-## Estrutura de Arquivos
-
-```
-├── api_bi.py              # API principal (Flask)
-├── gerar_hashes.py        # Utilitário para gerar hashes bcrypt
-├── teste_api.py           # Script de testes dos endpoints
-├── .env                   # Variáveis de ambiente (não versionar!)
-├── api_bi.log             # Log gerado em runtime (não versionar)
-│
-├── login.html             # Página de login
-├── login.css
-│
-├── dashboard.html         # Painel do usuário (disparo de tarefas)
-├── dashboard.css
-│
-├── admin.html             # Painel de gerenciamento de usuários (admin)
-├── admin.css
-│
-├── index.html             # Redirecionamento / página inicial
-├── web.config             # Configuração do IIS (documento padrão)
-│
-├── instalar_iis.ps1       # Script PowerShell para instalação do IIS
-├── GUIA_IIS.md            # Guia detalhado de configuração do IIS
-└── README.md              # Este arquivo
-```
-
-> **Não versionar:** `.env`, `api_bi.log`, e qualquer arquivo contendo senhas ou tokens.
-
----
-
-## Pré-requisitos
-
-### Backend
-
-- Python 3.8+
-- Windows Server (para execução do `schtasks`)
-- SQL Server com ODBC Driver 17
-- Tarefas agendadas configuradas no Windows Task Scheduler
-
-### Frontend
-
-- IIS instalado no Windows Server
-
----
-
-## Instalação e Configuração
-
-### 1. Clonar o repositório
+### 1. Instalar dependências
 
 ```bash
-git clone https://github.com/seu-usuario/seu-repositorio.git
-cd seu-repositorio
+pip install flask --break-system-packages
+pip install requests --break-system-packages
+pip install python-dotenv --break-system-packages
 ```
 
-### 2. Instalar dependências Python
-
-```bash
-pip install flask flask-cors requests python-dotenv pyodbc bcrypt --break-system-packages
-```
-
-Para produção com Gunicorn:
-
+Para ambiente de produção (com Gunicorn):
 ```bash
 pip install gunicorn --break-system-packages
 ```
 
-### 3. Configurar variáveis de ambiente
+### 2. Configurar variáveis de ambiente
 
-Crie um arquivo `.env` na raiz do projeto (use `.env.example` como base):
+Edite o arquivo `.env`:
 
-```env
-# Token de autenticação Bearer (gere um token seguro!)
+```
 API_TOKEN=seu-token-muito-secreto-aqui
-
-# Servidor onde as tarefas agendadas estão configuradas
 SERVIDOR_BI=192.168.0.210
-
-# Nome da tarefa padrão (usado pelo endpoint /atualizar-bi)
 TASK_NAME=AtualizaBI_TI
-
-# Banco de dados SQL Server
-DB_SERVER=192.168.0.210
-DB_NAME=powerbi_usuarios
-DB_USER=usuario_sql
-DB_PASSWORD=senha_sql
 ```
 
-Para gerar um token seguro:
+**IMPORTANTE:** Mude o `API_TOKEN` para algo seguro! Você pode gerar um token forte assim em Python:
 
 ```python
 import secrets
 print(secrets.token_urlsafe(32))
 ```
 
-### 4. Criar o banco de dados
+### 3. Executar a API
 
-Execute o script SQL abaixo no SQL Server (veja a seção [Banco de Dados](#banco-de-dados)).
-
-### 5. Gerar hashes de senha
-
-Edite e execute `gerar_hashes.py` para gerar os hashes bcrypt dos usuários iniciais:
-
-```bash
-pip install bcrypt --break-system-packages
-python gerar_hashes.py
-```
-
-Cole os hashes gerados nos `INSERT`s do banco de dados.
-
-### 6. Executar a API
-
-**Modo desenvolvimento:**
-
+#### Modo desenvolvimento (teste):
 ```bash
 python api_bi.py
 ```
 
-**Modo produção (recomendado):**
+A API estará disponível em: `http://localhost:5000`
 
+#### Modo produção (recomendado com Gunicorn):
 ```bash
 gunicorn -w 4 -b 0.0.0.0:5000 api_bi:app
 ```
 
-A API estará disponível em `http://localhost:5000`.
+## Endpoints
 
----
-
-## Banco de Dados
-
-### Schema da tabela `usuarios`
-
-```sql
-CREATE TABLE usuarios (
-    username      VARCHAR(50)   PRIMARY KEY,
-    senha_hash    VARCHAR(255)  NOT NULL,
-    display_name  VARCHAR(100)  NOT NULL,
-    aplicacoes    VARCHAR(MAX)  NOT NULL DEFAULT '[]', -- JSON array de task IDs
-    ativo         BIT           NOT NULL DEFAULT 1,
-    criado_em     DATETIME      DEFAULT GETDATE(),
-    atualizado_em DATETIME      DEFAULT GETDATE()
-);
+### 1. Health Check (sem autenticação)
+```
+GET /health
 ```
 
-### Exemplo de INSERT
-
-```sql
--- Substitua o hash pelo valor gerado pelo gerar_hashes.py
-INSERT INTO usuarios (username, senha_hash, display_name, aplicacoes, ativo)
-VALUES (
-    'admin',
-    '$2b$12$HASH_GERADO_AQUI',
-    'Administrador',
-    '["AtualizaBI_TI","AtualizaBI_Financeiro"]',
-    1
-);
-```
-
-### Campo `aplicacoes`
-
-Armazena um array JSON com os IDs das tarefas agendadas que o usuário tem permissão de executar:
-
+**Resposta:**
 ```json
-["AtualizaBI_TI", "AtualizaBI_Financeiro", "AtualizaBI_Margens"]
-```
-
-### Tarefas disponíveis
-
-| ID da Tarefa | Nome de Exibição |
-|---|---|
-| `AtualizaBI_AcomSemanalDesp` | Acomp. Semanal |
-| `AtualizaBI_Despesas` | Despesas |
-| `AtualizaBI_FCST` | Forecast |
-| `AtualizaBI_Financeiro` | Financeiro |
-| `AtualizaBI_Manutencao` | Manutenção |
-| `AtualizaBI_Margens` | Margens |
-| `AtualizaBI_Orcamento` | Orçamento |
-| `AtualizaBI_QL_RH` | RH / QL |
-| `AtualizaBI_Suprimentos` | Suprimentos |
-| `AtualizaBI_TI` | TI |
-
----
-
-## Referência da API
-
-Base URL: `http://<SERVIDOR>:5000`
-
-### Endpoints públicos (sem autenticação)
-
-#### `GET /health`
-Verifica se a API está no ar.
-
-```json
-// 200 OK
 {
   "status": "ok",
   "timestamp": "2024-02-17T10:30:00.123456",
@@ -268,50 +64,42 @@ Verifica se a API está no ar.
 }
 ```
 
-#### `GET /status`
-Retorna a configuração ativa (servidor e tarefa padrão).
+### 2. Informações da API (sem autenticação)
+```
+GET /info
+```
 
-#### `GET /info`
-Lista todos os endpoints disponíveis e instrução de autenticação.
-
-#### `POST /login`
-Autentica o usuário e retorna seus dados e permissões.
-
-**Request body:**
+**Resposta:**
 ```json
 {
-  "username": "financeiro",
-  "password": "sua-senha"
+  "nome": "API de Atualização do Power BI",
+  "versao": "1.0.0",
+  "endpoints": {...},
+  "autenticacao": "Bearer Token no header Authorization"
 }
 ```
 
-**Response 200:**
+### 3. Status da Configuração (sem autenticação)
+```
+GET /status
+```
+
+**Resposta:**
 ```json
 {
-  "username": "financeiro",
-  "displayName": "Financeiro",
-  "applications": ["AtualizaBI_Financeiro", "AtualizaBI_Margens"]
+  "servidor": "192.168.0.210",
+  "tarefa": "AtualizaBI_TI",
+  "timestamp": "2024-02-17T10:30:00.123456"
 }
 ```
 
-**Response 401:**
-```json
-{ "mensagem": "Usuário ou senha incorretos" }
+### 4. Disparar Atualização (COM autenticação)
+```
+POST /atualizar-bi
+Header: Authorization: Bearer seu-token-aqui
 ```
 
----
-
-### Endpoints protegidos
-
-Todos requerem o header:
-```
-Authorization: Bearer <API_TOKEN>
-```
-
-#### `POST /atualizar-bi`
-Dispara a tarefa agendada padrão (definida em `TASK_NAME` no `.env`).
-
-**Response 202:**
+**Resposta de sucesso (202):**
 ```json
 {
   "timestamp": "2024-02-17T10:30:00.123456",
@@ -321,198 +109,133 @@ Dispara a tarefa agendada padrão (definida em `TASK_NAME` no `.env`).
 }
 ```
 
-#### `POST /executar-tarefa/<nome_da_tarefa>`
-Dispara uma tarefa específica pelo ID.
-
-```bash
-POST /executar-tarefa/AtualizaBI_Financeiro
-```
-
-#### `GET /tarefas`
-Lista todas as tarefas disponíveis no sistema.
-
-#### `GET /usuarios`
-Lista todos os usuários cadastrados.
-
-#### `GET /usuarios/<username>`
-Retorna os dados de um usuário específico.
-
-#### `POST /usuarios`
-Cria um novo usuário.
-
-**Request body:**
+**Resposta de erro (401 - sem token):**
 ```json
 {
-  "username": "novo_usuario",
-  "password": "senha-segura",
-  "display_name": "Nome de Exibição",
-  "aplicacoes": ["AtualizaBI_TI"],
-  "ativo": 1
+  "erro": "Token não fornecido"
 }
 ```
 
-#### `PUT /usuarios/<username>`
-Atualiza dados do usuário (envie apenas os campos a alterar). Para alterar a senha, inclua `"password"` no body.
+**Resposta de erro (401 - token inválido):**
+```json
+{
+  "erro": "Token inválido"
+}
+```
 
-#### `PUT /usuarios/<username>/toggle`
-Alterna o status ativo/inativo do usuário.
+## Testando a API
 
----
-
-### Testando a API
+### Usando o script de teste Python:
 
 ```bash
-# Health check
-curl http://localhost:5000/health
-
-# Login
-curl -X POST http://localhost:5000/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"sua-senha"}'
-
-# Disparar tarefa
-curl -X POST http://localhost:5000/atualizar-bi \
-  -H "Authorization: Bearer seu-token-aqui"
-
-# Ou use o script de testes incluso:
 python teste_api.py
 ```
 
----
+### Usando cURL:
 
-## Frontend
-
-### Páginas
-
-| Arquivo | Descrição |
-|---|---|
-| `login.html` | Tela de autenticação. Chama `POST /login` e salva o retorno em `sessionStorage`. |
-| `dashboard.html` | Painel principal. Exibe apenas as aplicações do usuário logado. Permite selecionar múltiplas tarefas e executá-las. Admins veem configurações extras. |
-| `admin.html` | Painel de gerenciamento de usuários. Acessível apenas para o usuário `admin`. |
-
-### Autenticação no frontend
-
-O login retorna um objeto JSON que é salvo em `sessionStorage` com a chave `userData`:
-
-```json
-{
-  "username": "financeiro",
-  "displayName": "Financeiro",
-  "applications": ["AtualizaBI_Financeiro"]
-}
+#### Testar health check:
+```bash
+curl http://localhost:5000/health
 ```
 
-Todas as páginas verificam `sessionStorage` ao carregar e redirecionam para `login.html` se não houver sessão ativa.
-
-### Configuração da URL da API
-
-A URL da API está definida diretamente nas páginas HTML na variável `API_URL`. Atualize-a se o servidor mudar:
-
-```javascript
-// Em login.html, dashboard.html e admin.html
-const API_URL = 'http://192.168.0.210:5000';
+#### Testar info:
+```bash
+curl http://localhost:5000/info
 ```
 
----
+#### Disparar atualização:
+```bash
+curl -X POST http://localhost:5000/atualizar-bi \
+  -H "Authorization: Bearer seu-token-aqui"
+```
 
-## Hospedagem no IIS
+#### Com token inválido (teste de segurança):
+```bash
+curl -X POST http://localhost:5000/atualizar-bi
+```
 
-### Instalação rápida via PowerShell
+### Usando Postman ou Insomnia:
+
+1. Método: `POST`
+2. URL: `http://localhost:5000/atualizar-bi`
+3. Headers: 
+   - `Authorization`: `Bearer seu-token-aqui`
+4. Body: vazio
+
+## Logging
+
+A API registra todas as atividades no arquivo `api_bi.log` e também no console.
+
+Exemplo de log:
+```
+2024-02-17 10:30:00,123 - __main__ - INFO - Requisição de atualização recebida de 192.168.1.100
+2024-02-17 10:30:00,124 - __main__ - INFO - Executando comando: schtasks /run /s 192.168.0.210 /tn "AtualizaBI_TI"
+2024-02-17 10:30:01,456 - __main__ - INFO - Atualização do BI iniciada com sucesso
+```
+
+## Instalando como Serviço Windows
+
+### Usando NSSM (Non-Sucking Service Manager)
+
+1. Baixe o NSSM: https://nssm.cc/download
+2. Extraia em uma pasta, ex: `C:\nssm`
+3. Abra PowerShell como Administrador e execute:
 
 ```powershell
-# Executar como Administrador
-Install-WindowsFeature -Name Web-Server -IncludeManagementTools
+cd C:\nssm\win64
+.\nssm.exe install BiApiService "C:\Python\python.exe" "C:\caminho\para\api_bi.py"
+.\nssm.exe start BiApiService
 ```
 
-Ou use o script incluso:
+### Usando um script batch:
 
-```powershell
-.\instalar_iis.ps1
+Crie um arquivo `instalar_servico.bat`:
+
+```batch
+@echo off
+cd /d %~dp0
+python -m pip install pywin32
+python Scripts/pyinstall_win.py --install pywin32
+
+REM Instalar como serviço usando NSSM ou similar
+echo Serviço instalado!
+pause
 ```
-
-### Configurar o site
-
-```powershell
-# Criar pasta e copiar arquivos
-mkdir "C:\PowerBI_Web"
-Copy-Item ".\*.html",".\*.css" "C:\PowerBI_Web\"
-Copy-Item ".\web.config" "C:\PowerBI_Web\"
-
-# Criar site no IIS
-New-IISSite -Name "PowerBI_Panel" `
-            -BindingInformation "*:80:" `
-            -PhysicalPath "C:\PowerBI_Web"
-
-# Permissões
-icacls "C:\PowerBI_Web" /grant "IIS_IUSRS:(OI)(CI)F"
-```
-
-O arquivo `web.config` já está configurado para servir `login.html` como documento padrão.
-
-Para um guia completo com configurações de DNS e HTTPS, veja [GUIA_IIS.md](./GUIA_IIS.md).
-
----
 
 ## Segurança
 
-### Boas práticas implementadas
-
-- Senhas armazenadas com hash **bcrypt**
-- Autenticação via **Bearer Token** no header HTTP
-- Tentativas de acesso inválidas registradas em log com IP do cliente
-- Usuários inativos não conseguem autenticar
-- Controle de acesso por aplicação no nível do banco de dados
-
-### Recomendações para produção
-
-- **Troque o `API_TOKEN`** para um valor seguro gerado com `secrets.token_urlsafe(32)`
-- **Não versione o `.env`** — adicione-o ao `.gitignore`
-- Configure **HTTPS/TLS** no IIS e rode a API atrás de um proxy reverso (nginx, IIS ARR)
-- Restrinja o acesso à porta `5000` no firewall, liberando apenas IPs autorizados
-- Monitore o arquivo `api_bi.log` regularmente
-
-### .gitignore recomendado
-
-```
-.env
-api_bi.log
-__pycache__/
-*.pyc
-*.pyo
-```
-
----
+- **Token**: Mude o token padrão! Use um token seguro (mínimo 32 caracteres)
+- **HTTPS**: Em produção, use HTTPS/SSL
+- **Firewall**: Restrinja acesso à API apenas de IPs autorizados
+- **Logs**: Monitore os logs regularmente para tentativas suspeitas
+- **Credenciais**: Armazene o token em variáveis de ambiente, não no código
 
 ## Troubleshooting
 
-**`ModuleNotFoundError: No module named 'flask'`**
-```bash
-pip install flask --break-system-packages
-```
+### Erro: "ModuleNotFoundError: No module named 'flask'"
+**Solução:** Instale Flask: `pip install flask --break-system-packages`
 
-**Porta 5000 já em uso**
-```bash
-# Verificar o processo na porta
-netstat -ano | findstr :5000
-# Matar o processo pelo PID
-taskkill /PID <PID> /F
-```
+### Erro: "Porta 5000 já em uso"
+**Solução:** Mude a porta no código ou termine o processo usando a porta
 
-**Erro de conexão com SQL Server**
-- Confirme que o ODBC Driver 17 está instalado
-- Verifique as credenciais no `.env`
-- Certifique-se que a porta 1433 está acessível no firewall
+### Erro: "Acesso negado ao conectar ao servidor BI"
+**Solução:** Verifique:
+- O IP do servidor está correto
+- Há firewall bloqueando a comunicação
+- A tarefa agendada existe no servidor
+- O usuário que executa a API tem permissões
 
-**`Acesso negado` ao executar `schtasks`**
-- O usuário que executa a API precisa de permissão para acionar tarefas remotas no servidor BI
-- Verifique se o servidor BI está acessível na rede
+## Próximos Passos
 
-**Erros de CORS no browser**
-- A API usa `flask-cors` e está configurada para aceitar qualquer origem
-- Em produção, restrinja as origens permitidas no `CORS(app, origins=[...])`
+1. Teste a API neste servidor
+2. Crie uma página web para disparar a atualização
+3. Configure autenticação mais robusta se necessário
+4. Implante como serviço Windows em produção
 
----
+## Suporte
 
-## Licença
-
-Uso interno. Consulte o responsável pelo projeto para redistribuição.
+Para dúvidas ou problemas, verifique:
+- Logs em `api_bi.log`
+- Resposta HTTP (verifique o status code)
+- Configuração do `.env`
+- Permissões de rede e firewall
