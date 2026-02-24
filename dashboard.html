@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel - Power BI</title>
+    <link rel="stylesheet" href="dashboard.css">
+    <style>
+        /* ── Engrenagem / Settings menu ── */
+        .settings-wrapper {
+            position: relative;
+        }
+
+        .btn-settings {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+            width: 38px;
+            height: 38px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1.1em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .btn-settings:hover {
+            background: white;
+            color: #667eea;
+        }
+
+        .settings-dropdown {
+            display: none;
+            position: absolute;
+            top: 48px;
+            right: 0;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            min-width: 220px;
+            z-index: 999;
+            overflow: hidden;
+        }
+
+        .settings-dropdown.open {
+            display: block;
+        }
+
+        .settings-dropdown-header {
+            padding: 12px 16px;
+            font-size: 0.78em;
+            font-weight: 700;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .settings-dropdown a,
+        .settings-dropdown button.menu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            color: #333;
+            text-decoration: none;
+            font-size: 0.92em;
+            font-weight: 500;
+            transition: background 0.2s;
+            width: 100%;
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .settings-dropdown a:hover,
+        .settings-dropdown button.menu-item:hover {
+            background: #f0f0fb;
+            color: #667eea;
+        }
+
+        .menu-icon {
+            font-size: 1em;
+            width: 20px;
+            text-align: center;
+        }
+
+        /* ── Modal Configuração da API ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 36px;
+            width: 100%;
+            max-width: 560px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .modal-header h3 {
+            font-size: 1.2em;
+            color: #333;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.3em;
+            cursor: pointer;
+            color: #999;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .modal-config-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .modal-config-item label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #555;
+            font-size: 0.9em;
+        }
+
+        .modal-config-item input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: border-color 0.3s;
+        }
+
+        .modal-config-item input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 2px solid #eee;
+        }
+
+        .btn-modal-secondary {
+            padding: 10px 20px;
+            background: #f0f0f0;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .btn-modal-secondary:hover { background: #e0e0e0; }
+
+        .btn-modal-primary {
+            padding: 10px 20px;
+            background: #17a2b8;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .btn-modal-primary:hover { background: #138496; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h1>⚡ Painel Power BI</h1>
+        <div class="user-info">
+            <div class="user-name">👤 <span id="userDisplay"></span></div>
+
+            <!-- Engrenagem (visível só para admin) -->
+            <div class="settings-wrapper" id="settingsWrapper" style="display:none;">
+                <button class="btn-settings" onclick="toggleSettings()" title="Configurações">⚙️</button>
+                <div class="settings-dropdown" id="settingsDropdown">
+                    <div class="settings-dropdown-header">Configurações</div>
+                    <a href="admin.html">
+                        <span class="menu-icon">👥</span> Gerenciar Usuários
+                    </a>
+                    <button class="menu-item" onclick="openApiModal()">
+                        <span class="menu-icon">🔧</span> Configuração da API
+                    </button>
+                </div>
+            </div>
+
+            <button class="btn-logout" onclick="handleLogout()">Sair</button>
+        </div>
+    </div>
+
+    <!-- Modal Configuração da API -->
+    <div class="modal-overlay" id="apiModalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>🔧 Configuração da API</h3>
+                <button class="modal-close" onclick="closeApiModal()">✕</button>
+            </div>
+
+            <div class="modal-config-group">
+                <div class="modal-config-item">
+                    <label for="apiUrl">URL da API</label>
+                    <input type="text" id="apiUrl" value="http://192.168.0.210:5000">
+                </div>
+                <div class="modal-config-item">
+                    <label for="apiToken">Token</label>
+                    <input type="password" id="apiToken" value="123456789">
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-modal-secondary" onclick="closeApiModal()">Fechar</button>
+                <button class="btn-modal-primary" onclick="testConnection()">🔍 Testar Conexão</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h2>Bem-vindo ao Painel de Atualização</h2>
+            <p>Selecione as tarefas que deseja executar e clique em "Executar"</p>
+        </div>
+
+        <h3 class="applications-title">📊 Suas Aplicações</h3>
+        <div class="tasks-grid" id="tasksGrid"></div>
+
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="executeSelectedTasks()">▶ Executar Selecionadas</button>
+            <button class="btn btn-secondary" onclick="toggleSelectAll()">Selecionar Todas</button>
+            <button class="btn btn-secondary" onclick="clearStatus()">Limpar Log</button>
+        </div>
+
+        <div class="status-area">
+            <h3>📋 Log de Execução</h3>
+            <div id="statusLog">
+                <div class="status-item info">Aguardando execução...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const taskDescriptions = {
+            'AtualizaBI_AcomSemanalDesp': 'Acompanhamento Semanal',
+            'AtualizaBI_Despesas':        'Despesas',
+            'AtualizaBI_FCST':            'Forecast',
+            'AtualizaBI_Financeiro':      'Financeiro',
+            'AtualizaBI_Manutencao':      'Manutenção',
+            'AtualizaBI_Margens':         'Margens',
+            'AtualizaBI_Orcamento':       'Orçamento',
+            'AtualizaBI_QL_RH':           'RH / QL',
+            'AtualizaBI_Suprimentos':     'Suprimentos',
+            'AtualizaBI_TI':              'TI'
+        };
+
+        let selectedTasks = new Set();
+        let userData = null;
+
+        window.addEventListener('load', () => {
+            const storedUserData = sessionStorage.getItem('userData');
+            if (!storedUserData) { window.location.href = 'login.html'; return; }
+
+            userData = JSON.parse(storedUserData);
+            document.getElementById('userDisplay').textContent = userData.displayName;
+
+            if (userData.username === 'admin') {
+                document.getElementById('settingsWrapper').style.display = 'block';
+            }
+
+            initializeTasksGrid();
+        });
+
+        // Fechar dropdown ao clicar fora
+        document.addEventListener('click', (e) => {
+            const wrapper = document.getElementById('settingsWrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                document.getElementById('settingsDropdown').classList.remove('open');
+            }
+        });
+
+        function toggleSettings() {
+            document.getElementById('settingsDropdown').classList.toggle('open');
+        }
+
+        // ── Modal API ──
+        function openApiModal() {
+            document.getElementById('settingsDropdown').classList.remove('open');
+            document.getElementById('apiModalOverlay').classList.add('open');
+        }
+
+        function closeApiModal() {
+            document.getElementById('apiModalOverlay').classList.remove('open');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('apiModalOverlay').addEventListener('click', function (e) {
+                if (e.target === this) closeApiModal();
+            });
+        });
+
+        // ── Tasks ──
+        function initializeTasksGrid() {
+            const grid = document.getElementById('tasksGrid');
+            grid.innerHTML = '';
+
+            userData.applications.forEach(taskId => {
+                const card = document.createElement('div');
+                card.className = 'task-card';
+                card.innerHTML = `
+                    <input type="checkbox" class="task-checkbox" data-task-id="${taskId}" onchange="toggleTask('${taskId}')">
+                    <h4>${taskDescriptions[taskId] || taskId}</h4>
+                    <p>ID: ${taskId}</p>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function toggleTask(taskId) {
+            const checkbox = document.querySelector(`input[data-task-id="${taskId}"]`);
+            const card = checkbox.closest('.task-card');
+            if (checkbox.checked) {
+                selectedTasks.add(taskId);
+                card.classList.add('active');
+            } else {
+                selectedTasks.delete(taskId);
+                card.classList.remove('active');
+            }
+        }
+
+        function toggleSelectAll() {
+            const allCheckboxes = document.querySelectorAll('.task-checkbox');
+            const allSelected = selectedTasks.size === allCheckboxes.length;
+            selectedTasks.clear();
+            allCheckboxes.forEach(checkbox => {
+                checkbox.checked = !allSelected;
+                if (!allSelected) selectedTasks.add(checkbox.dataset.taskId);
+                checkbox.closest('.task-card').classList.toggle('active', !allSelected);
+            });
+        }
+
+        async function testConnection() {
+            const apiUrl   = document.getElementById('apiUrl').value;
+            const apiToken = document.getElementById('apiToken').value;
+            addStatus('🔍 Testando conexão...', 'info');
+            try {
+                const response = await fetch(`${apiUrl}/health`, {
+                    headers: { 'Authorization': `Bearer ${apiToken}` }
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    addStatus('✅ Conexão OK!', 'success');
+                    closeApiModal();
+                } else {
+                    addStatus(`⚠️ Erro: ${data.mensagem}`, 'error');
+                }
+            } catch (error) {
+                addStatus(`❌ Erro de conexão: ${error.message}`, 'error');
+            }
+        }
+
+        async function executeSelectedTasks() {
+            if (selectedTasks.size === 0) {
+                addStatus('Selecione pelo menos uma tarefa', 'error');
+                return;
+            }
+            const apiUrl   = document.getElementById('apiUrl').value;
+            const apiToken = document.getElementById('apiToken').value;
+            addStatus(`Iniciando ${selectedTasks.size} tarefa(s)...`, 'info');
+            for (const taskId of selectedTasks) {
+                await executeTask(taskId, taskDescriptions[taskId] || taskId, apiUrl, apiToken);
+            }
+            addStatus('Execução concluída!', 'success');
+        }
+
+        async function executeTask(taskId, taskName, apiUrl, apiToken) {
+            addStatus(`⏳ Executando: ${taskName}...`, 'info');
+            try {
+                const response = await fetch(`${apiUrl}/executar-tarefa/${taskId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                if (response.ok || response.status === 202) {
+                    addStatus(`✅ ${taskName} executada com sucesso`, 'success');
+                } else {
+                    addStatus(`❌ Erro ao executar ${taskName}`, 'error');
+                }
+            } catch (error) {
+                addStatus(`❌ Erro: ${taskName} - ${error.message}`, 'error');
+            }
+        }
+
+        function addStatus(message, type = 'info') {
+            const statusLog = document.getElementById('statusLog');
+            const item = document.createElement('div');
+            item.className = `status-item ${type}`;
+            const timestamp = new Date().toLocaleTimeString('pt-BR');
+            item.innerHTML = `${message}<div class="timestamp">${timestamp}</div>`;
+            statusLog.insertBefore(item, statusLog.firstChild);
+            while (statusLog.children.length > 50) statusLog.removeChild(statusLog.lastChild);
+        }
+
+        function clearStatus() {
+            document.getElementById('statusLog').innerHTML =
+                '<div class="status-item info">Log limpo. Aguardando...</div>';
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('userData');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

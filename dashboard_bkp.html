@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel - Power BI</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+    <div class="navbar">
+        <h1>⚡ Painel Power BI</h1>
+        <div class="user-info">
+            <div class="user-name">👤 <span id="userDisplay"></span></div>
+            <button class="btn-logout" onclick="handleLogout()">Sair</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h2>Bem-vindo ao Painel de Atualização</h2>
+            <p>Selecione as tarefas que deseja executar e clique em "Executar"</p>
+        </div>
+
+        <div class="config-section" id="configSection">
+            <h3>⚙️ Configuração da API</h3>
+            <div class="config-group">
+                <div class="config-item">
+                    <label for="apiUrl">URL da API:</label>
+                    <input 
+                        type="text" 
+                        id="apiUrl" 
+                        value="http://192.168.0.210:5000"
+                    >
+                </div>
+                <div class="config-item">
+                    <label for="apiToken">Token:</label>
+                    <input 
+                        type="password" 
+                        id="apiToken" 
+                        value="123456789"
+                    >
+                </div>
+                <button class="btn-test" onclick="testConnection()">🔍 Testar</button>
+            </div>
+        </div>
+
+        <h3 class="applications-title">📊 Suas Aplicações</h3>
+        <div class="tasks-grid" id="tasksGrid"></div>
+
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="executeSelectedTasks()">▶ Executar Selecionadas</button>
+            <button class="btn btn-secondary" onclick="toggleSelectAll()">Selecionar Todas</button>
+            <button class="btn btn-secondary" onclick="clearStatus()">Limpar Log</button>
+        </div>
+
+        <div class="status-area">
+            <h3>📋 Log de Execução</h3>
+            <div id="statusLog">
+                <div class="status-item info">Aguardando execução...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const taskDescriptions = {
+            'AtualizaBI_AcomSemanalDesp': 'Acompanhamento Semanal',
+            'AtualizaBI_Despesas': 'Despesas',
+            'AtualizaBI_FCST': 'Forecast',
+            'AtualizaBI_Financeiro': 'Financeiro',
+            'AtualizaBI_Manutencao': 'Manutenção',
+            'AtualizaBI_Margens': 'Margens',
+            'AtualizaBI_Orcamento': 'Orçamento',
+            'AtualizaBI_QL_RH': 'RH / QL',
+            'AtualizaBI_Suprimentos': 'Suprimentos',
+            'AtualizaBI_TI': 'TI'
+        };
+
+        let selectedTasks = new Set();
+        let userData = null;
+
+        window.addEventListener('load', () => {
+            // Verificar autenticação
+            const storedUserData = sessionStorage.getItem('userData');
+            if (!storedUserData) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            userData = JSON.parse(storedUserData);
+            document.getElementById('userDisplay').textContent = userData.displayName;
+
+            // Ocultar configuração da API para não-admins
+            if (userData.username !== 'admin') {
+                document.getElementById('configSection').style.display = 'none';
+            }
+
+            // Carregar apenas as tarefas do usuário
+            initializeTasksGrid();
+        });
+
+        function initializeTasksGrid() {
+            const grid = document.getElementById('tasksGrid');
+            grid.innerHTML = '';
+
+            userData.applications.forEach(taskId => {
+                const card = document.createElement('div');
+                card.className = 'task-card';
+                card.innerHTML = `
+                    <input type="checkbox" class="task-checkbox" data-task-id="${taskId}" onchange="toggleTask('${taskId}')">
+                    <h4>${taskDescriptions[taskId] || taskId}</h4>
+                    <p>ID: ${taskId}</p>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function toggleTask(taskId) {
+            const checkbox = document.querySelector(`input[data-task-id="${taskId}"]`);
+            const card = checkbox.closest('.task-card');
+
+            if (checkbox.checked) {
+                selectedTasks.add(taskId);
+                card.classList.add('active');
+            } else {
+                selectedTasks.delete(taskId);
+                card.classList.remove('active');
+            }
+        }
+
+        function toggleSelectAll() {
+            const allCheckboxes = document.querySelectorAll('.task-checkbox');
+            const allSelected = selectedTasks.size === allCheckboxes.length;
+
+            selectedTasks.clear();
+            allCheckboxes.forEach(checkbox => {
+                checkbox.checked = !allSelected;
+                if (!allSelected) {
+                    selectedTasks.add(checkbox.dataset.taskId);
+                }
+                const card = checkbox.closest('.task-card');
+                card.classList.toggle('active', !allSelected);
+            });
+        }
+
+        async function testConnection() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const apiToken = document.getElementById('apiToken').value;
+
+            addStatus('🔍 Testando conexão...', 'info');
+
+            try {
+                const response = await fetch(`${apiUrl}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${apiToken}`
+                    }
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    addStatus(`✅ Conexão OK!`, 'success');
+                } else {
+                    addStatus(`⚠️ Erro: ${data.mensagem}`, 'error');
+                }
+            } catch (error) {
+                addStatus(`❌ Erro de conexão: ${error.message}`, 'error');
+            }
+        }
+
+        async function executeSelectedTasks() {
+            if (selectedTasks.size === 0) {
+                addStatus('Selecione pelo menos uma tarefa', 'error');
+                return;
+            }
+
+            const apiUrl = document.getElementById('apiUrl').value;
+            const apiToken = document.getElementById('apiToken').value;
+
+            addStatus(`Iniciando ${selectedTasks.size} tarefa(s)...`, 'info');
+
+            for (const taskId of selectedTasks) {
+                const taskName = taskDescriptions[taskId] || taskId;
+                await executeTask(taskId, taskName, apiUrl, apiToken);
+            }
+
+            addStatus('Execução concluída!', 'success');
+        }
+
+        async function executeTask(taskId, taskName, apiUrl, apiToken) {
+            addStatus(`⏳ Executando: ${taskName}...`, 'info');
+
+            try {
+                const response = await fetch(`${apiUrl}/executar-tarefa/${taskId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok || response.status === 202) {
+                    addStatus(`✅ ${taskName} executada com sucesso`, 'success');
+                } else {
+                    addStatus(`❌ Erro ao executar ${taskName}`, 'error');
+                }
+            } catch (error) {
+                addStatus(`❌ Erro: ${taskName} - ${error.message}`, 'error');
+            }
+        }
+
+        function addStatus(message, type = 'info') {
+            const statusLog = document.getElementById('statusLog');
+            const item = document.createElement('div');
+            item.className = `status-item ${type}`;
+
+            const timestamp = new Date().toLocaleTimeString('pt-BR');
+            item.innerHTML = `
+                ${message}
+                <div class="timestamp">${timestamp}</div>
+            `;
+
+            statusLog.insertBefore(item, statusLog.firstChild);
+
+            while (statusLog.children.length > 50) {
+                statusLog.removeChild(statusLog.lastChild);
+            }
+        }
+
+        function clearStatus() {
+            document.getElementById('statusLog').innerHTML = `
+                <div class="status-item info">Log limpo. Aguardando...</div>
+            `;
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('userData');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>
