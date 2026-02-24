@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Usuários - Power BI</title>
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+    <div class="navbar">
+        <h1>⚡ Painel Power BI</h1>
+        <div class="navbar-right">
+            <div class="user-name">👤 <span id="userDisplay"></span></div>
+            <button class="btn-logout" onclick="window.location.href='dashboard.html'">← Voltar</button>
+            <button class="btn-logout" onclick="handleLogout()">Sair</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <div class="header-text">
+                <h2>👥 Gerenciar Usuários</h2>
+                <p>Crie, edite e desative usuários do sistema</p>
+            </div>
+            <button class="btn btn-primary" onclick="openModal()">+ Novo Usuário</button>
+        </div>
+
+        <div class="card">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Usuário</th>
+                            <th>Nome de Exibição</th>
+                            <th>Aplicações</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <tr>
+                            <td colspan="5" style="text-align:center; color:#999; padding: 30px;">
+                                Carregando...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal criar/editar -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <h3 id="modalTitle">Novo Usuário</h3>
+
+            <div class="form-group">
+                <label for="inputUsername">Usuário (login)</label>
+                <input type="text" id="inputUsername" placeholder="ex: financeiro">
+            </div>
+
+            <div class="form-group">
+                <label for="inputDisplayName">Nome de Exibição</label>
+                <input type="text" id="inputDisplayName" placeholder="ex: Financeiro">
+            </div>
+
+            <div class="form-group">
+                <label for="inputPassword">Senha</label>
+                <input type="password" id="inputPassword" placeholder="Digite a senha">
+                <div class="hint" id="passwordHint">Deixe em branco para manter a senha atual</div>
+            </div>
+
+            <div class="form-group">
+                <label>Aplicações permitidas</label>
+                <div class="apps-grid" id="appsGrid"></div>
+            </div>
+
+            <div class="form-group">
+                <label>Status</label>
+                <div class="toggle-group">
+                    <label class="toggle">
+                        <input type="checkbox" id="inputAtivo" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span id="toggleLabel">Ativo</span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveUser()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm desativar -->
+    <div class="confirm-overlay" id="confirmOverlay">
+        <div class="confirm-box">
+            <p id="confirmMessage">Deseja desativar este usuário?</p>
+            <div class="confirm-actions">
+                <button class="btn btn-secondary" onclick="closeConfirm()">Cancelar</button>
+                <button class="btn btn-danger" id="confirmBtn" onclick="confirmAction()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast feedback -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API_URL = 'http://192.168.0.210:5000';
+
+        const ALL_APPS = [
+            { id: 'AtualizaBI_AcomSemanalDesp', label: 'Acomp. Semanal' },
+            { id: 'AtualizaBI_Despesas',        label: 'Despesas' },
+            { id: 'AtualizaBI_FCST',            label: 'Forecast' },
+            { id: 'AtualizaBI_Financeiro',      label: 'Financeiro' },
+            { id: 'AtualizaBI_Manutencao',      label: 'Manutenção' },
+            { id: 'AtualizaBI_Margens',         label: 'Margens' },
+            { id: 'AtualizaBI_Orcamento',       label: 'Orçamento' },
+            { id: 'AtualizaBI_QL_RH',           label: 'RH / QL' },
+            { id: 'AtualizaBI_Suprimentos',     label: 'Suprimentos' },
+            { id: 'AtualizaBI_TI',              label: 'TI' },
+        ];
+
+        let userData = null;
+        let editingUsername = null;
+        let confirmCallback = null;
+
+        // ── Init ──
+        window.addEventListener('load', () => {
+            const stored = sessionStorage.getItem('userData');
+            if (!stored) { window.location.href = 'login.html'; return; }
+
+            userData = JSON.parse(stored);
+
+            if (userData.username !== 'admin') {
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            document.getElementById('userDisplay').textContent = userData.displayName;
+            buildAppsGrid();
+            loadUsers();
+
+            // Toggle label
+            document.getElementById('inputAtivo').addEventListener('change', function () {
+                document.getElementById('toggleLabel').textContent = this.checked ? 'Ativo' : 'Inativo';
+            });
+        });
+
+        // ── Carregar usuários ──
+        async function loadUsers() {
+            const token = getToken();
+            try {
+                const res  = await fetch(`${API_URL}/usuarios`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                renderTable(data.usuarios || []);
+            } catch (e) {
+                showToast('Erro ao carregar usuários', 'error');
+            }
+        }
+
+        function renderTable(usuarios) {
+            const tbody = document.getElementById('usersTableBody');
+
+            if (usuarios.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#999;padding:30px;">Nenhum usuário encontrado</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = usuarios.map(u => {
+                const apps = JSON.parse(u.aplicacoes || '[]');
+                const tagsHtml = apps.map(a => {
+                    const found = ALL_APPS.find(x => x.id === a);
+                    return `<span class="app-tag">${found ? found.label : a}</span>`;
+                }).join('');
+
+                return `
+                <tr>
+                    <td><strong>${u.username}</strong></td>
+                    <td>${u.display_name}</td>
+                    <td><div class="apps-list">${tagsHtml}</div></td>
+                    <td><span class="badge ${u.ativo ? 'badge-active' : 'badge-inactive'}">${u.ativo ? 'Ativo' : 'Inativo'}</span></td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn btn-secondary btn-sm" onclick="openModal('${u.username}')">✏️ Editar</button>
+                            <button class="btn btn-danger btn-sm" onclick="askDeactivate('${u.username}')">
+                                ${u.ativo ? '🚫 Desativar' : '✅ Reativar'}
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        // ── Modal ──
+        function buildAppsGrid() {
+            const grid = document.getElementById('appsGrid');
+            grid.innerHTML = ALL_APPS.map(app => `
+                <label class="app-check">
+                    <input type="checkbox" value="${app.id}" id="app_${app.id}">
+                    ${app.label}
+                </label>
+            `).join('');
+        }
+
+        async function openModal(username = null) {
+            editingUsername = username;
+            document.getElementById('modalTitle').textContent = username ? 'Editar Usuário' : 'Novo Usuário';
+            document.getElementById('passwordHint').style.display = username ? 'block' : 'none';
+
+            // Limpar form
+            document.getElementById('inputUsername').value = '';
+            document.getElementById('inputDisplayName').value = '';
+            document.getElementById('inputPassword').value = '';
+            document.getElementById('inputAtivo').checked = true;
+            document.getElementById('toggleLabel').textContent = 'Ativo';
+            document.getElementById('inputUsername').disabled = false;
+            ALL_APPS.forEach(app => document.getElementById(`app_${app.id}`).checked = false);
+
+            if (username) {
+                document.getElementById('inputUsername').disabled = true;
+                const token = getToken();
+                try {
+                    const res  = await fetch(`${API_URL}/usuarios/${username}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const data = await res.json();
+                    const u    = data.usuario;
+
+                    document.getElementById('inputUsername').value    = u.username;
+                    document.getElementById('inputDisplayName').value = u.display_name;
+                    document.getElementById('inputAtivo').checked     = u.ativo == 1;
+                    document.getElementById('toggleLabel').textContent = u.ativo ? 'Ativo' : 'Inativo';
+
+                    const apps = JSON.parse(u.aplicacoes || '[]');
+                    apps.forEach(a => {
+                        const el = document.getElementById(`app_${a}`);
+                        if (el) el.checked = true;
+                    });
+                } catch (e) {
+                    showToast('Erro ao carregar usuário', 'error');
+                    return;
+                }
+            }
+
+            document.getElementById('modalOverlay').classList.add('open');
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('open');
+            editingUsername = null;
+        }
+
+        async function saveUser() {
+            const username    = document.getElementById('inputUsername').value.trim().toLowerCase();
+            const displayName = document.getElementById('inputDisplayName').value.trim();
+            const password    = document.getElementById('inputPassword').value;
+            const ativo       = document.getElementById('inputAtivo').checked ? 1 : 0;
+            const aplicacoes  = ALL_APPS
+                .filter(app => document.getElementById(`app_${app.id}`).checked)
+                .map(app => app.id);
+
+            if (!username || !displayName) {
+                showToast('Preencha usuário e nome de exibição', 'error');
+                return;
+            }
+
+            if (!editingUsername && !password) {
+                showToast('Informe uma senha para o novo usuário', 'error');
+                return;
+            }
+
+            if (aplicacoes.length === 0) {
+                showToast('Selecione pelo menos uma aplicação', 'error');
+                return;
+            }
+
+            const token = getToken();
+            const body  = { username, display_name: displayName, aplicacoes, ativo };
+            if (password) body.password = password;
+
+            try {
+                const isNew = !editingUsername;
+                const res   = await fetch(
+                    isNew ? `${API_URL}/usuarios` : `${API_URL}/usuarios/${editingUsername}`,
+                    {
+                        method: isNew ? 'POST' : 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(body)
+                    }
+                );
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showToast(data.mensagem || 'Erro ao salvar', 'error');
+                    return;
+                }
+
+                showToast(isNew ? 'Usuário criado com sucesso!' : 'Usuário atualizado!', 'success');
+                closeModal();
+                loadUsers();
+            } catch (e) {
+                showToast('Erro de conexão', 'error');
+            }
+        }
+
+        // ── Desativar / Reativar ──
+        function askDeactivate(username) {
+            document.getElementById('confirmMessage').textContent =
+                `Deseja alterar o status do usuário "${username}"?`;
+            confirmCallback = () => toggleAtivo(username);
+            document.getElementById('confirmOverlay').classList.add('open');
+        }
+
+        function closeConfirm() {
+            document.getElementById('confirmOverlay').classList.remove('open');
+            confirmCallback = null;
+        }
+
+        function confirmAction() {
+            if (confirmCallback) confirmCallback();
+            closeConfirm();
+        }
+
+        async function toggleAtivo(username) {
+            const token = getToken();
+            try {
+                const res  = await fetch(`${API_URL}/usuarios/${username}/toggle`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showToast(data.mensagem || 'Erro', 'error');
+                    return;
+                }
+
+                showToast(data.mensagem, 'success');
+                loadUsers();
+            } catch (e) {
+                showToast('Erro de conexão', 'error');
+            }
+        }
+
+        // ── Helpers ──
+        function getToken() {
+            return sessionStorage.getItem('apiToken') || '123456789';
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className   = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('userData');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

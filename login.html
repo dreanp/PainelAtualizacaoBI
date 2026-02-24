@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Painel Power BI</title>
+    <link rel="stylesheet" href="login.css">
+</head>
+
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>Power BI</h1>
+            <p>Painel de Atualização</p>
+        </div>
+
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+
+        <form onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label for="username">Usuário:</label>
+                <input type="text" id="username" placeholder="Digite seu usuário" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Senha:</label>
+                <input type="password" id="password" placeholder="Digite sua senha" required>
+            </div>
+
+            <button type="submit" class="btn-login" id="btnLogin">Entrar</button>
+        </form>
+    </div>
+
+    <script>
+        const API_URL = 'http://192.168.0.210:5000';
+
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('errorMessage');
+            const successDiv = document.getElementById('successMessage');
+            const btnLogin = document.getElementById('btnLogin');
+
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+
+            btnLogin.disabled = true;
+            btnLogin.textContent = 'Autenticando...';
+
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    errorDiv.textContent = '❌ ' + (data.mensagem || 'Usuário ou senha incorretos');
+                    errorDiv.style.display = 'block';
+                    btnLogin.disabled = false;
+                    btnLogin.textContent = 'Entrar';
+                    return;
+                }
+
+                // Sucesso — salvar dados e redirecionar
+                sessionStorage.setItem('userData', JSON.stringify(data));
+
+                successDiv.textContent = '✅ Login realizado com sucesso! Redirecionando...';
+                successDiv.style.display = 'block';
+
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 1000);
+
+            } catch (error) {
+                errorDiv.textContent = '❌ Erro ao conectar com o servidor';
+                errorDiv.style.display = 'block';
+                btnLogin.disabled = false;
+                btnLogin.textContent = 'Entrar';
+            }
+        }
+
+        // Verificar se já está logado
+        window.addEventListener('load', () => {
+            if (sessionStorage.getItem('userData')) {
+                window.location.href = 'dashboard.html';
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Atualização - Power BI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .config-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .config-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 1.2em;
+        }
+
+        .config-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 20px;
+            margin-bottom: 15px;
+            align-items: flex-end;
+        }
+
+        .config-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .config-item label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #555;
+            font-size: 0.95em;
+        }
+
+        .config-item input {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .config-item input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .tasks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .task-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .task-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+            transform: translateY(-5px);
+        }
+
+        .task-card.active {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        }
+
+        .task-card h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .task-card p {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+
+        .task-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            flex: 1;
+            min-width: 200px;
+            justify-content: center;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+            flex: 1;
+            min-width: 150px;
+            justify-content: center;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-test {
+            background: #17a2b8;
+            color: white;
+            min-width: 150px;
+            justify-content: center;
+        }
+
+        .btn-test:hover {
+            background: #138496;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.9em;
+            min-width: auto;
+        }
+
+        .status-area {
+            margin-top: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 2px solid #e0e0e0;
+        }
+
+        .status-area h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .status-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            font-size: 0.95em;
+            border-left: 4px solid #ddd;
+            animation: slideIn 0.3s ease;
+            font-family: 'Courier New', monospace;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .status-item.success {
+            background: #d4edda;
+            color: #155724;
+            border-left-color: #28a745;
+        }
+
+        .status-item.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left-color: #dc3545;
+        }
+
+        .status-item.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left-color: #17a2b8;
+        }
+
+        .status-item.warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left-color: #ffc107;
+        }
+
+        .status-item.pending {
+            background: #e7e7ff;
+            color: #333;
+            border-left-color: #667eea;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #1565c0;
+            font-size: 0.95em;
+        }
+
+        .timestamp {
+            font-size: 0.85em;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .config-group {
+                grid-template-columns: 1fr;
+            }
+
+            .tasks-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+
+        .task-description {
+            font-size: 0.85em;
+            color: #999;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Painel de Atualização Power BI</h1>
+            <p>Gerencie as atualizações dos seus dashboards de forma centralizada</p>
+        </div>
+
+        <div class="content">
+            <div class="info-box">
+                ℹ️ Configure a API abaixo, teste a conexão e selecione as tarefas que deseja executar.
+            </div>
+
+            <div class="config-section">
+                <h3>⚙️ Configuração da API</h3>
+                <div class="config-group">
+                    <div class="config-item">
+                        <label for="apiUrl">URL da API:</label>
+                        <input 
+                            type="text" 
+                            id="apiUrl" 
+                            placeholder="http://192.168.0.210:5000" 
+                            value="http://192.168.0.210:5000"
+                        >
+                    </div>
+                    <div class="config-item">
+                        <label for="apiToken">Token:</label>
+                        <input 
+                            type="password" 
+                            id="apiToken" 
+                            placeholder="Seu token aqui"
+                            value="123456789"
+                        >
+                    </div>
+                    <button class="btn btn-test" onclick="testConnection()">
+                        🔍 Testar Conexão
+                    </button>
+                </div>
+            </div>
+
+            <h3 style="margin: 30px 0 20px 0; color: #333;">📊 Selecione as Tarefas</h3>
+            <div class="tasks-grid" id="tasksGrid">
+                <!-- As tarefas serão carregadas aqui -->
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-primary" id="executeBtn" onclick="executeSelectedTasks()">
+                    <span>▶</span>
+                    <span>Executar Tarefas Selecionadas</span>
+                </button>
+                <button class="btn btn-secondary" id="selectAllBtn" onclick="toggleSelectAll()">
+                    Selecionar Todas
+                </button>
+                <button class="btn btn-secondary btn-small" onclick="clearStatus()">
+                    Limpar Log
+                </button>
+            </div>
+
+            <div class="status-area">
+                <h3>📋 Log de Execução</h3>
+                <div id="statusLog">
+                    <div class="status-item info">
+                        Aguardando execução de tarefas...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const tasksData = [
+            {
+                id: 'AtualizaBI_AcomSemanal',
+                name: 'Acompanhamento Semanal',
+                description: 'Atualiza dados de acompanhamento semanal'
+            },
+            {
+                id: 'AtualizaBI_Despesas',
+                name: 'Despesas',
+                description: 'Atualiza relatório de despesas'
+            },
+            {
+                id: 'AtualizaBI_FCST',
+                name: 'Forecast',
+                description: 'Atualiza previsões e forecasts'
+            },
+            {
+                id: 'AtualizaBI_Financeiro',
+                name: 'Financeiro',
+                description: 'Atualiza dados financeiros'
+            },
+            {
+                id: 'AtualizaBI_Manutencao',
+                name: 'Manutenção',
+                description: 'Atualiza dados de manutenção'
+            },
+            {
+                id: 'AtualizaBI_Margens',
+                name: 'Margens',
+                description: 'Atualiza análise de margens'
+            },
+            {
+                id: 'AtualizaBI_Orcamento',
+                name: 'Orçamento',
+                description: 'Atualiza dados de orçamento'
+            },
+            {
+                id: 'AtualizaBI_QL_RH',
+                name: 'RH / QL',
+                description: 'Atualiza dados de RH e qualidade'
+            },
+            {
+                id: 'AtualizaBI_Suprimentos',
+                name: 'Suprimentos',
+                description: 'Atualiza dados de suprimentos'
+            },
+            {
+                id: 'AtualizaBI_TI',
+                name: 'TI',
+                description: 'Atualiza dados de TI'
+            }
+        ];
+
+        let selectedTasks = new Set();
+
+        function initializeTasksGrid() {
+            const grid = document.getElementById('tasksGrid');
+            grid.innerHTML = '';
+
+            tasksData.forEach(task => {
+                const card = document.createElement('div');
+                card.className = 'task-card';
+                card.innerHTML = `
+                    <input type="checkbox" class="task-checkbox" data-task-id="${task.id}" onchange="toggleTask('${task.id}')">
+                    <h4>${task.name}</h4>
+                    <p>${task.description}</p>
+                    <div class="task-description">ID: ${task.id}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function toggleTask(taskId) {
+            const checkbox = document.querySelector(`input[data-task-id="${taskId}"]`);
+            const card = checkbox.closest('.task-card');
+
+            if (checkbox.checked) {
+                selectedTasks.add(taskId);
+                card.classList.add('active');
+            } else {
+                selectedTasks.delete(taskId);
+                card.classList.remove('active');
+            }
+
+            updateSelectAllButton();
+        }
+
+        function toggleSelectAll() {
+            const allCheckboxes = document.querySelectorAll('.task-checkbox');
+            const allSelected = selectedTasks.size === tasksData.length;
+
+            selectedTasks.clear();
+            allCheckboxes.forEach(checkbox => {
+                checkbox.checked = !allSelected;
+                if (!allSelected) {
+                    selectedTasks.add(checkbox.dataset.taskId);
+                }
+                const card = checkbox.closest('.task-card');
+                card.classList.toggle('active', !allSelected);
+            });
+
+            updateSelectAllButton();
+        }
+
+        function updateSelectAllButton() {
+            const btn = document.getElementById('selectAllBtn');
+            if (selectedTasks.size === tasksData.length) {
+                btn.textContent = 'Desselecionar Todas';
+            } else {
+                btn.textContent = 'Selecionar Todas';
+            }
+        }
+
+        async function testConnection() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const apiToken = document.getElementById('apiToken').value;
+
+            if (!apiUrl || !apiToken) {
+                addStatus('Configure a URL da API e o token antes de testar', 'error');
+                return;
+            }
+
+            addStatus('🔍 Testando conexão com a API...', 'info');
+
+            try {
+                const response = await fetch(`${apiUrl}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${apiToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    addStatus(`✅ Conexão OK! API respondeu: ${data.mensagem}`, 'success');
+                } else {
+                    addStatus(`⚠️ API respondeu com status ${response.status}`, 'warning');
+                }
+            } catch (error) {
+                addStatus(`❌ Erro ao conectar: ${error.message}`, 'error');
+                addStatus(`💡 Tente acessar diretamente: ${document.getElementById('apiUrl').value}/health`, 'info');
+            }
+        }
+
+        async function executeSelectedTasks() {
+            if (selectedTasks.size === 0) {
+                addStatus('Selecione pelo menos uma tarefa para executar', 'warning');
+                return;
+            }
+
+            const apiUrl = document.getElementById('apiUrl').value;
+            const apiToken = document.getElementById('apiToken').value;
+
+            if (!apiUrl || !apiToken) {
+                addStatus('Configure a URL da API e o token antes de prosseguir', 'error');
+                return;
+            }
+
+            const executeBtn = document.getElementById('executeBtn');
+            executeBtn.disabled = true;
+
+            const tasksArray = Array.from(selectedTasks);
+            addStatus(`Iniciando execução de ${tasksArray.length} tarefa(s)...`, 'info');
+
+            for (const taskId of tasksArray) {
+                const taskName = tasksData.find(t => t.id === taskId)?.name || taskId;
+                await executeTask(taskId, taskName, apiUrl, apiToken);
+            }
+
+            executeBtn.disabled = false;
+            addStatus('Execução concluída!', 'success');
+        }
+
+        async function executeTask(taskId, taskName, apiUrl, apiToken) {
+            addStatus(`⏳ Executando: ${taskName}...`, 'pending');
+
+            try {
+                const response = await fetch(`${apiUrl}/executar-tarefa/${taskId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok || response.status === 202) {
+                    addStatus(`✅ Sucesso: ${taskName} - ${data.mensagem}`, 'success');
+                } else {
+                    addStatus(`❌ Erro [${response.status}]: ${taskName}`, 'error');
+                }
+            } catch (error) {
+                addStatus(`❌ Erro ao conectar: ${taskName}`, 'error');
+            }
+        }
+
+        function addStatus(message, type = 'info') {
+            const statusLog = document.getElementById('statusLog');
+            const item = document.createElement('div');
+            item.className = `status-item ${type}`;
+
+            const timestamp = new Date().toLocaleTimeString('pt-BR');
+            item.innerHTML = `
+                ${message}
+                <div class="timestamp">${timestamp}</div>
+            `;
+
+            statusLog.insertBefore(item, statusLog.firstChild);
+
+            while (statusLog.children.length > 50) {
+                statusLog.removeChild(statusLog.lastChild);
+            }
+        }
+
+        function clearStatus() {
+            document.getElementById('statusLog').innerHTML = `
+                <div class="status-item info">
+                    Log limpo. Aguardando execução de tarefas...
+                </div>
+            `;
+        }
+
+        document.addEventListener('DOMContentLoaded', initializeTasksGrid);
+    </script>
+</body>
+</html>
