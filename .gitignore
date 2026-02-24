@@ -1,0 +1,24 @@
+# Variáveis de ambiente (NUNCA versionar)
+.env
+
+# Logs gerados em runtime
+*.log
+
+# Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ambientes virtuais
+venv/
+.venv/
+env/
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
